@@ -1,6 +1,6 @@
 ﻿namespace Room25Backend.Domain.Entities.Tiles;
 
-public class EmptyRoom : Tile
+public class PrisonRoom : Tile
 {
 
     public override bool Action(GameInfo gameInfo, Player player, string[] action, int destinationX, int destinationY)
@@ -11,7 +11,9 @@ public class EmptyRoom : Tile
                 {
                     if (destinationX >= 0 && destinationX <= 4 && destinationY >= 0 && destinationY <= 4)
                     {
-                        if (gameInfo.Field[destinationX, destinationY].IsAccessable)
+                        // Если тюрьма примыкает к центральной комнате или в направлении стоит другой персонаж
+                        if ((gameInfo.Field[destinationX, destinationY] is CentralRoom || gameInfo.Players.Any(p => p.X == destinationX && p.Y == destinationY))
+                            && gameInfo.Field[destinationX, destinationY].IsAccessable)
                         {
                             var p = gameInfo.Players.Single(p => p.Name == player.Name);
                             p.X = destinationX;
@@ -26,16 +28,6 @@ public class EmptyRoom : Tile
                 break;
 
             case "look":
-                {
-                    if (destinationX >= 0 && destinationX <= 4 && destinationY >= 0 && destinationY <= 4)
-                    {
-                        gameInfo.Field[destinationX, destinationY].IsVisible = true;
-                    }
-                    else return false;
-                }
-                break;
-
-            case "push":
                 {
                     if (destinationX >= 0 && destinationX <= 4 && destinationY >= 0 && destinationY <= 4)
                     {

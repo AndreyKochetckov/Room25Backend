@@ -1,6 +1,6 @@
 ﻿namespace Room25Backend.Domain.Entities.Tiles;
 
-public class EmptyRoom : Tile
+public class ColdRoom : Tile
 {
 
     public override bool Action(GameInfo gameInfo, Player player, string[] action, int destinationX, int destinationY)
@@ -20,26 +20,6 @@ public class EmptyRoom : Tile
                             gameInfo.Field[p.X, p.Y].Enter(gameInfo, p);
                         }
                         else return false;
-                    }
-                    else return false;
-                }
-                break;
-
-            case "look":
-                {
-                    if (destinationX >= 0 && destinationX <= 4 && destinationY >= 0 && destinationY <= 4)
-                    {
-                        gameInfo.Field[destinationX, destinationY].IsVisible = true;
-                    }
-                    else return false;
-                }
-                break;
-
-            case "push":
-                {
-                    if (destinationX >= 0 && destinationX <= 4 && destinationY >= 0 && destinationY <= 4)
-                    {
-                        gameInfo.Field[destinationX, destinationY].IsVisible = true;
                     }
                     else return false;
                 }

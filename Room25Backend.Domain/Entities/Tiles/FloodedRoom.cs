@@ -1,7 +1,9 @@
 ﻿namespace Room25Backend.Domain.Entities.Tiles;
 
-public class EmptyRoom : Tile
+public class FloodedRoom : Tile
 {
+    public Player Player { get; set; }
+    public int Turn { get; set; }
 
     public override bool Action(GameInfo gameInfo, Player player, string[] action, int destinationX, int destinationY)
     {
@@ -54,10 +56,20 @@ public class EmptyRoom : Tile
     public override void Enter(GameInfo gameInfo, Player player)
     {
         IsVisible = true;
+        IsAccessable = false;
+        Turn = gameInfo.RemainingTurns;
+        Player = player;
     }
 
     public override void Update(GameInfo gameInfo)
     {
-        
+        if (Player != null)
+        {
+            var player = gameInfo.Players.Single(p => p.Name == Player.Name);
+            if (Player.X == player.X && Player.Y == player.Y && Turn != gameInfo.RemainingTurns)
+            {
+                player.Character.IsAlive = false;
+            }
+        }
     }
 }

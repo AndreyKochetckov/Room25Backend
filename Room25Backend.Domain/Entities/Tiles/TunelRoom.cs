@@ -1,6 +1,6 @@
 ﻿namespace Room25Backend.Domain.Entities.Tiles;
 
-public class EmptyRoom : Tile
+public class TunelRoom : Tile
 {
 
     public override bool Action(GameInfo gameInfo, Player player, string[] action, int destinationX, int destinationY)
@@ -54,6 +54,9 @@ public class EmptyRoom : Tile
     public override void Enter(GameInfo gameInfo, Player player)
     {
         IsVisible = true;
+        var tunelRooms = gameInfo.Field.Cast<Tile>().ToList().Where(t => t is TunelRoom) as List<TunelRoom>;
+        var tunelRoom = tunelRooms[new Random().Next(tunelRooms.Count - 1)];
+        (player.X, player.Y) = (tunelRoom.X, tunelRoom.Y);
     }
 
     public override void Update(GameInfo gameInfo)

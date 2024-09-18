@@ -108,9 +108,7 @@ async Task ReceiveMessage(PlayerConnection playerConnection, IServiceScopeFactor
                         }
 
                         await sessionService.UpdateSession(gameInfo);
-                        JsonSerializerSettings settings = new() { TypeNameHandling = TypeNameHandling.Auto };
-                        string serialized = JsonConvert.SerializeObject(gameInfo, new JsonSerializerSettings() { TypeNameHandling = TypeNameHandling.Auto });
-                        await Broadcast(serialized, gameInfo.Id);
+                        await Broadcast(responseJSON, gameInfo.Id);
                     }
                 }
                 await Broadcast(message, playerConnection.GameId);

@@ -11,4 +11,5 @@ public class PlayerResponse
     public GameMode GameMode { get; set; }
     public bool IsStarted { get; set; }
     public int RemainingTurns { get; set; }
+    public bool IsValid { get; set; }
 }

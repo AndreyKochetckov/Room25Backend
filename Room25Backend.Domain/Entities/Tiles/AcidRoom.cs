@@ -1,7 +1,8 @@
 ﻿namespace Room25Backend.Domain.Entities.Tiles;
 
-public class EmptyRoom : Tile
+public class AcidRoom : Tile
 {
+    public string FirstPlayerName { get; set; }
 
     public override bool Action(GameInfo gameInfo, Player player, string[] action, int destinationX, int destinationY)
     {
@@ -54,6 +55,21 @@ public class EmptyRoom : Tile
     public override void Enter(GameInfo gameInfo, Player player)
     {
         IsVisible = true;
+
+        if (string.IsNullOrEmpty(FirstPlayerName))
+        {
+            FirstPlayerName = player.Name;
+            (X, Y) = (player.X, player.Y);
+        }
+        else
+        {
+            var firstPlayer = gameInfo.Players.Single(p => p.Name == FirstPlayerName);
+            if (FirstPlayerName != player.Name && firstPlayer.X == X && firstPlayer.Y == Y)
+            {
+                firstPlayer.Character.IsAlive = false;
+                FirstPlayerName = string.Empty;
+            }
+        }
     }
 
     public override void Update(GameInfo gameInfo)

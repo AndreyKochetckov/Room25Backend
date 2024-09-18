@@ -2,7 +2,6 @@
 using Room25Backend.Domain.Entities;
 using Room25Backend.Domain.Entities.Tiles;
 using Room25Backend.Infrastructure.DTO;
-using System.Text.Json;
 
 namespace Room25Backend.Infrastructure.Services.Session;
 
@@ -12,96 +11,52 @@ public static class SessionMaster
 
     public static string Turn(GameInfo gameInfo, PlayerRequest request, PlayerConnection playerConnection)
     {
+        bool isValid = false;
+
         if (playerConnection.Name == gameInfo.CurrentPlayer.Name)
         {
+            isValid = true;
             var action = request.Action.Split(':');
             var (currentX, currentY) = (gameInfo.CurrentPlayer.X, gameInfo.CurrentPlayer.Y);
             var (destinationX, destinationY) = (0, 0);
-            if (action[1].ToLower() == "up") (destinationX, destinationY) = (currentX, currentY - 1);
-            if (action[1].ToLower() == "right") (destinationX, destinationY) = (currentX + 1, currentY);
-            if (action[1].ToLower() == "down") (destinationX, destinationY) = (currentX, currentY + 1);
-            if (action[1].ToLower() == "left") (destinationX, destinationY) = (currentX - 1, currentY);
+            if (action[1].ToLower() == "up")        (destinationX, destinationY) = (currentX, currentY - 1);
+            if (action[1].ToLower() == "right")     (destinationX, destinationY) = (currentX + 1, currentY);
+            if (action[1].ToLower() == "down")      (destinationX, destinationY) = (currentX, currentY + 1);
+            if (action[1].ToLower() == "left")      (destinationX, destinationY) = (currentX - 1, currentY);
 
-            switch (action[0])
+            var player = gameInfo.Players.Single(p => p.Name == request.Name);
+
+            isValid = gameInfo.Field[currentX, currentY].Action(gameInfo, player, action, destinationX, destinationY); //Обработка действия игрока в комнате
+
+            if (isValid) //Если ход соблюдает правила игры
             {
-                case "move":
-                    {
-                        if (destinationX >= 0 && destinationX <= 4 && destinationY >= 0 && destinationY <= 4)
-                        {
-                            var p = gameInfo.Players.Single(p => p.Name == request.Name);
-                            p.X = destinationX;
-                            p.Y = destinationY;
+                foreach (var tile in gameInfo.Field) { tile.Update(gameInfo); } //Фоновая обработка логики комнат
 
-                            gameInfo.Field[p.X, p.Y].Action(gameInfo, p);
-                        }
-                    }
-                    break;
+                if (gameInfo.CurrentPlayer.Name == gameInfo.Players.Last().Name)
+                {
+                    MoveFirstToLast(gameInfo.Players);
+                    gameInfo.CurrentPlayer = gameInfo.Players[0];
+                    gameInfo.CurrentPlayerIndex = 0;
+                    gameInfo.RemainingTurns--;
+                }
+                else
+                {
+                    gameInfo.CurrentPlayer = gameInfo.Players[++gameInfo.CurrentPlayerIndex];
+                }
 
-                case "look":
-                    {
-                        if (destinationX >= 0 && destinationX <= 4 && destinationY >= 0 && destinationY <= 4)
-                        {
-                            gameInfo.Field[destinationX, destinationY].IsVisible = true;
-                        }
-                    }
-                    break;
-
-                case "push":
-                    {
-                        if (gameInfo.CurrentPlayer.X == 2 && gameInfo.CurrentPlayer.Y == 2) break; // Зарпещено выталкивать из центральной комнаты!
-                        if (destinationX >= 0 && destinationX <= 4 && destinationY >= 0 && destinationY <= 4)
-                        {
-                            gameInfo.Field[destinationX, destinationY].IsVisible = true;
-                        }
-                    }
-                    break;
-
-                case "control":
-                    {
-                        if (action[1].ToLower() == "up" && currentX != 2)
-                        {
-
-                        }
-                        if (action[1].ToLower() == "right" && currentY != 2)
-                        {
-
-                        }
-                        if (action[1].ToLower() == "down" && currentX != 2)
-                        {
-
-                        }
-                        if (action[1].ToLower() == "left" && currentY != 2)
-                        {
-
-                        }
-                    }
-                    break;
-            }
-
-            if (gameInfo.CurrentPlayer.Name == gameInfo.Players.Last().Name)
-            {
-                MoveFirstToLast(gameInfo.Players);
-                gameInfo.CurrentPlayer = gameInfo.Players[0];
-                gameInfo.CurrentPlayerIndex = 0;
-                gameInfo.RemainingTurns--;
-            }
-            else
-            {
-                gameInfo.CurrentPlayer = gameInfo.Players[++gameInfo.CurrentPlayerIndex];
-            }
-
-            // Проигрыш, если ходов не осталось, или кто-то из персонажей погиб
-            if (gameInfo.RemainingTurns == 0 || gameInfo.Players.Select(p => p.Character).Select(c => c.IsAlive).Contains(false))
-            {
-                gameInfo.GameStatus = GameStatus.Defeat;
-                gameInfo.IsStarted = false;
+                // Проигрыш, если ходов не осталось, или кто-то из персонажей погиб
+                if (gameInfo.RemainingTurns == 0 || gameInfo.Players.Select(p => p.Character).Select(c => c.IsAlive).Contains(false))
+                {
+                    gameInfo.GameStatus = GameStatus.Defeat;
+                    gameInfo.IsStarted = false;
+                }
             }
         }
 
-        return SerializeData(gameInfo, playerConnection);
+        return SerializeData(gameInfo, playerConnection, isValid);
     }
 
-    private static string SerializeData(GameInfo gameInfo, PlayerConnection playerConnection)
+    private static string SerializeData(GameInfo gameInfo, PlayerConnection playerConnection, bool isValid)
     {
         string result = string.Empty;
 
@@ -111,6 +66,7 @@ public static class SessionMaster
                 {
                     var publicData = new PlayerResponse
                     {
+                        IsValid = isValid,
                         GameMode = GameMode.Cooperation,
                         Players = gameInfo.Players,
                         CurrentPlayer = gameInfo.CurrentPlayer,
@@ -146,18 +102,16 @@ public static class SessionMaster
     public static void InitializeField(GameInfo gameInfo)
     {
         gameInfo.Field = new Tile[5, 5];
-        gameInfo.Field[2, 2] = new CentralRoom() { IsVisible = true };
+        gameInfo.Field[2, 2] = new CentralRoom() { IsVisible = true, X = 2, Y = 2 };
 
         var coord = ExitRoom.GetRoomCoords();
-        gameInfo.Field[coord.Item1, coord.Item2] = new ExitRoom();
+        gameInfo.Field[coord.Item1, coord.Item2] = new ExitRoom() { X = coord.Item1, Y = coord.Item2 };
 
         var tiles = new Stack<Tile>();
-        tiles.Push(new KeyRoom());
 
-        // TODO: Получить список комнат в зависимости от режима игры и засунуть их в стек. А пока заполняем пустыми комнатами
-        for (int i = 1; i <= 22; i++)
+        foreach (var tile in GetTiles(gameInfo))
         {
-            tiles.Push(new EmptyRoom());
+            tiles.Push(tile);
         }
 
         tiles = tiles.Shuffle();
@@ -168,14 +122,60 @@ public static class SessionMaster
             {
                 if (gameInfo.Field[i, j] == null)
                 {
-                    gameInfo.Field[i, j] = tiles.Pop();
+                    var tile = tiles.Pop();
+                    (tile.X, tile.Y) = (i, j);
+                    gameInfo.Field[i, j] = tile;
                 }
             }
         }
+    }
 
-        //JsonSerializerSettings settings = new() { TypeNameHandling = TypeNameHandling.Auto };
-        //string serialized = JsonConvert.SerializeObject(gameInfo.Field, new JsonSerializerSettings() { TypeNameHandling = TypeNameHandling.Auto });
-        //Tile[,] deserializedList = JsonConvert.DeserializeObject<Tile[,]>(serialized, settings);
+    private static List<Tile> GetTiles(GameInfo gameInfo)
+    {
+        var tiles = new List<Tile>();
+        
+        switch (gameInfo.GameMode)
+        {
+            case GameMode.Cooperation:
+                {
+                    tiles.AddRange(
+                    [
+                        new KeyRoom(),
+                        new EmptyRoom(),
+                        new EmptyRoom(),
+                        new TunelRoom(),
+                        new TunelRoom(),
+                        new VortexRoom(),
+                        new PrisonRoom(),
+                        new PrisonRoom(),
+                        new DarkRoom(),
+                        new DarkRoom(),
+                        new ColdRoom(),
+                        new ColdRoom(),
+                        new PivotingRoom(),
+                        new PivotingRoom(),
+                        new FloodedRoom(),
+                        new FloodedRoom(),
+                        new ShredderRoom(),
+                        new ShredderRoom(),
+                        new TrappedRoom(),
+                        new TrappedRoom(),
+                        new AcidRoom(),
+                        new AcidRoom(),
+                        new MortalRoom(),
+                        new MortalRoom(),
+                    ]);
+                }
+                break;
+
+            case GameMode.Suspicion:
+                {
+                    
+                }
+                break;
+        }
+
+        return tiles;
     }
 
     public static int GetTurnCount(GameInfo gameInfo)
